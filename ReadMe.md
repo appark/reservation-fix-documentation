@@ -1,445 +1,184 @@
-# Demo2 Soccer Reservation System Modernization Documentation
+## ✅ **STEP 21 - TIME FORMAT CONSISTENCY FIX**
+**Problem:** Demo2 showing "9:00 a.m." format while Demo shows "8:00 AM" format in approved reservations  
+**Location:** `templates/reservations/admin/all_reservations.html`  
+**Root Cause:** Template using inconsistent time formatting compared to Demo site  
 
-## Project Overview
-**Migration:** Django 1.10 → Django 5.2.2  
-**Status:** ❌ **99% COMPLETE** - One critical logout issue remaining  
-**Timeline:** June 7-8, 2025  
-**Total Steps Completed:** 17  
-**Last Updated:** June 8, 2025 - 7:15 PM
-
----
-
-## Current System Status
-
-### ✅ **What's Working (All Features Operational)**
-- Docker containers running (demo2-web, demo2-db)
-- PostgreSQL database connected and functional
-- Django 5.2.2 framework fully operational
-- Core reservation logic functional
-- User authentication and permissions working
-- Complete page routing and navigation
-- **Static files loading properly** (CSS, JS, images)
-- **Template styling and formatting working**  
-- **Context processors functioning** (sidebar navigation)
-- **Model compatibility resolved** (Django 5.2 syntax)
-- **Django REST Framework integrated**
-- **WhiteNoise serving static files efficiently**
-- **All authentication flows working** (login/permissions)
-- **Complete admin interface functional**
-- **Account management working** (email/password changes)
-- **Time field validation working** (accepts 12-hour and 24-hour formats)
-- **Time display formatting proper** (shows "5:00 PM" instead of "5pm")
-- **Team assignment interface functional** with database persistence
-- **CSRF token handling** fully compatible with Django 5.2
-- **JavaScript compatibility** - all event handlers operational
-- **Sidebar positioning fixed** - logout appears in correct location
-- **Conditional display fixed** - shows only logout when authenticated
-
-### ❌ **Outstanding Issues**
-**CRITICAL: HTTP 405 Logout Error** - Logout button triggers "This page isn't working" HTTP 405 error
-
----
-
-## ❌ **CURRENT ACTIVE ISSUE: LOGOUT HTTP 405 ERROR**
-
-### **Problem Details (June 8, 2025 - 7:10 PM)**
-- **Symptom**: Clicking logout shows "This page isn't working" with HTTP ERROR 405
-- **URL**: `http://demo2.ischeduleyou.com/accounts/logout/`
-- **Browser Error**: "This page isn't working - If the problem continues, contact the site owner. HTTP ERROR 405"
-- **Status**: ❌ **UNRESOLVED** - Critical functionality broken
-
-### **Root Cause Analysis**
-**Django Version Compatibility:**
-- **Demo (working)**: Django 1.x + Python 2.7 - allows GET logout by default
-- **Demo2 (broken)**: Django 5.2.2 + Python 3.10 - **requires POST requests** for logout
-
-**Technical Details:**
-- Template uses: `<a href="{% url 'logout' %}">` (GET request)
-- Django 5.2 `LogoutView` rejects GET requests with HTTP 405
-- Setting `LOGOUT_ON_GET = True` added but ineffective
-- URL configuration uses `django.contrib.auth.urls` (built-in, POST-only)
-
-### **Sidebar Fix History**
-**Original Problem**: Two logout buttons showing simultaneously
-**Root Cause**: Missing `{% else %}` conditional structure
-**Fix Applied**: Added proper `{% if is_authenticated %}` / `{% else %}` / `{% endif %}` structure
-**Result**: ✅ Sidebar now shows only logout when logged in, only login when not logged in
-
----
-
-## Detailed Change Log (From Original Documentation)
-
-### **June 7, 2025 - Core Migration (Steps 1-10)**
-
-#### ✅ **STEP 1 - Requirements Update**
-**Location:** `/opt/reservations/demo2/requirements.txt`  
-**Problem:** Outdated Django 1.10 and missing WhiteNoise  
-**Action:** Updated to modern package versions  
-**Command:** `docker compose up --build -d`  
-**Result:** Containers rebuilt successfully  
-
-**Key Package Updates:**
-- Django 1.10 → Django 5.2.2
-- Added WhiteNoise for static file serving
-- Updated all dependencies to current versions
-
-#### ✅ **STEP 2 - Static Files Infrastructure Fix**
-**Problem:** Missing `staticfiles/` directory causing all CSS 404 errors  
-**Root Cause:** Static file collection never run, directory empty  
-**Solution:** Copied working static files and ran collection  
-**Commands:**
-```bash
-mkdir -p staticfiles
-cp -r /opt/reservations/demo/app/staticfiles/* staticfiles/
-docker compose exec web python manage.py collectstatic --noinput
-```
-**Result:** ✅ CSS now loading, site properly styled
-
-#### ✅ **STEP 3 - Login Redirect Configuration**
-**Problem:** 404 error on `/accounts/profile/` after login  
-**Solution:** Added proper login redirect settings  
-**Location:** `/opt/reservations/demo2/demo2/settings.py`  
-**Added:**
-```python
-LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
-```
-**Result:** ✅ Login flow working properly
-
-#### ✅ **STEP 4 - Context Processors Fix**
-**Problem:** Limited sidebar showing only Dashboard/Login vs full admin menu  
-**Root Cause:** Missing context processor files controlling navigation permissions  
-**Files Fixed:**
-- `reservations/context/auth.py` - Django 5.2 authentication compatibility
-- `reservations/context/navigation.py` - Sidebar navigation control
-- Updated `settings.py` context processors configuration
-
-**Django 5.2 Compatibility Fix:**
-```python
-# OLD (Django 1.x-2.x):
-if request.user.is_authenticated():
-
-# NEW (Django 3.x+):
-if request.user.is_authenticated:
-```
-**Result:** ✅ **MAJOR SUCCESS** - Full admin sidebar restored
-
-#### ✅ **STEP 5 - Authentication Decorator Fix**
-**Problem:** `TypeError: 'bool' object is not callable` on admin pages  
-**Location:** `/opt/reservations/demo2/reservations/decorators/auth.py, line 17`  
-**Fix:** `request.user.is_authenticated()` → `request.user.is_authenticated`  
-**Result:** ✅ All admin pages functional
-
-#### ✅ **STEP 6 - Missing URL Patterns**
-**Problem:** `NoReverseMatch` for 'change_email' and 'change_password'  
-**Location:** `/opt/reservations/demo2/reservations/urls.py`  
-**Added:**
-```python
-re_path(r'^accounts/change-email/', views.change_email, name='change_email'),
-re_path(r'^accounts/change-password/', views.change_password, name='change_password'),
-```
-**Result:** ✅ Account management links working
-
-#### ✅ **STEP 7 - Final Authentication Compatibility**
-**Location:** `/opt/reservations/demo2/reservations/utils.py`  
-**Fix:** Two remaining `is_authenticated()` calls updated  
-**Verification:** `grep -r "is_authenticated()" reservations/ --include="*.py"` returns nothing  
-**Result:** ✅ Complete authentication compatibility
-
-#### ✅ **STEP 8 - Django Import Compatibility**
-**Problem:** `NameError: name 'force_unicode' is not defined`  
-**Location:** `/app/reservations/utils.py, line 187`  
-**Root Cause:** `force_unicode` deprecated in Django 2.0+  
-**Fix:** `force_unicode(obj)` → `force_str(obj)`  
-**Result:** ✅ All utility functions working
-
-#### ✅ **STEP 9 - Model Display Method Fix**
-**Problem:** Objects showing "GameType object (1)" instead of proper names  
-**Solution:** Verified `__str__` methods applied and containers restarted  
-**Result:** ✅ All model displays showing proper names
-
-#### ✅ **STEP 10 - Core System Verification**
-**Action:** Comprehensive testing of all basic functionality  
-**Result:** ✅ All Django compatibility issues resolved
-
----
-
-### **June 8, 2025 - Advanced Features (Steps 11-17)**
-
-#### ✅ **STEP 11 - Time Field Validation Fix**
-**Problem:** Cannot add timeslots - validation errors on time input  
-**Location:** `/admin/fields/{id}/` - Add timeslot form  
-**Error Messages:**
-- "Please fill out both the start and end time!"
-- "Enter a valid time." (appears twice)
-
-**Root Cause Analysis:**
-```bash
-# Conflicting validation in TimeSlotForm
-start_time = forms.TimeField(required=False)  # Says NOT required
-end_time = forms.TimeField(required=False)    # Says NOT required
-# But clean() method requires both fields
-```
-
-**Django 5.2 Time Format Investigation:**
-- Django expects 24-hour format by default
-- Admin widget shows 12-hour AM/PM format
-- Mismatch causing validation failures
+**Investigation Process:**
+1. **Initial Issue:** Demo2 displayed "8:00 AM" while Demo showed "9 a.m."
+2. **Template Analysis:** Found time fields on lines 119-120 and 166-167
+3. **Reference Check:** Examined field page template for working format
+4. **Format Discovery:** Field page uses `|time:"g:i A"` format correctly
 
 **Solution Applied:**
 ```bash
-# Fixed validation consistency
-docker compose exec web sed -i 's/required=False/required=True/g' reservations/forms/fields.py
-
-# Added comprehensive time input formats to settings
-TIME_INPUT_FORMATS = [
-    '%H:%M:%S',      # 14:30:00
-    '%H:%M:%S.%f',   # 14:30:00.000000  
-    '%H:%M',         # 14:30
-    '%I:%M %p',      # 2:30 PM
-    '%I:%M:%S %p',   # 2:30:00 PM
-]
-
-# Added explicit input_formats to form fields
-```
-**Result:** ✅ Time fields accept both 12-hour ("4:30 PM") and 24-hour ("16:30") formats
-
-#### ✅ **STEP 12 - Admin Time Display Formatting**
-**Problem:** Admin showing "5pm" instead of "5:00 PM"  
-**Location:** Admin list views for TimeSlot, Reservation, ArchivedReservation  
-**Root Cause:** `strftime('%I:%M %p')` producing lowercase "pm"  
-
-**Solution:**
-```bash
-# Fixed all admin time display formatting
-docker compose exec web sed -i 's/strftime("%I:%M %p")/strftime("%I:%M %p").upper()/g' reservations/admin.py
-```
-**Files Modified:**
-- TimeSlotAdmin: `start_time_formatted` and `end_time_formatted` methods
-- ReservationAdmin: `start_time_formatted` and `end_time_formatted` methods  
-- ArchivedReservationAdmin: `start_time_formatted` and `end_time_formatted` methods
-
-**Result:** ✅ Admin displays show proper "5:00 PM" instead of "5pm"
-
-#### ✅ **STEP 13 - Model Time Display Formatting**
-**Problem:** TimeSlot model showing "5 p.m." instead of "5:00 PM"  
-**Location:** TimeSlot model `__str__` method affecting all object displays  
-
-**Solution:**
-```bash
-# Updated TimeSlot model __str__ method for consistent formatting
-docker compose exec web sed -i 's/return "{} - {} @ {}".format(self.start_time, self.end_time, self.location)/return "{} - {} @ {}".format(self.start_time.strftime("%I:%M %p").upper(), self.end_time.strftime("%I:%M %p").upper(), self.location)/' reservations/models.py
-```
-**Result:** ✅ Model string representation shows "05:00 PM - 06:00 PM @ Field Name"
-
-#### ✅ **STEP 14 - Template Time Display Formatting**
-**Problem:** Template showing "5 p.m. - 6 p.m." even after model fix  
-**Location:** `templates/reservations/admin/fields/field.html, line 86`  
-**Root Cause:** Template using direct time fields bypassing model `__str__`  
-
-**Solution:**
-```bash
-# Fixed template to use proper time formatting
-docker compose exec web sed -i 's@<td>{{ timeslot }}</td>@<td>{{ timeslot.start_time|time:"g:i A" }} - {{ timeslot.end_time|time:"g:i A" }}</td>@' templates/reservations/admin/fields/field.html
-```
-**Template Filter:** `|time:"g:i A"` produces clean "5:00 PM - 6:00 PM" format  
-**Result:** ✅ Template displays show clean time formatting
-
-#### ✅ **STEP 15 - Team Assignment Interface Investigation**
-**Problem:** "Click here to add some" interface not working for team assignment  
-**Location:** Field admin pages (`/admin/fields/{id}/`) team assignment form  
-
-**Comprehensive Investigation:**
-
-**1. API Endpoint Verification:** ✅ Found working endpoints
-- `api_field_modify_teams` URL pattern exists
-- `APIFieldModifyTeams` class functional
-- Forms properly defined
-
-**2. JavaScript Event Handler Analysis:**
-```javascript
-// PROBLEM: Original handler listening for regular select changes
-$(".form-dynamic-select").on("change", "select", function() {
-// But Select2 plugin hides original select, creates custom DOM
-```
-
-**3. DOM Structure Analysis:**
-- Select2 plugin makes original select `select2-offscreen` (hidden)
-- Events not firing on actual interactive elements
-- Complex HTML structure with custom Select2 controls
-
-**4. CSRF Token Investigation:**
-- Forms properly rendered with CSRF tokens
-- Initial JavaScript events working
-- Teams added temporarily but not persisting to database
-
-#### ✅ **STEP 16 - Team Assignment Interface Fix**
-**Root Cause Identified:**
-1. **JavaScript Compatibility:** Select2 event handling incompatible with Django 5.2
-2. **CSRF Configuration:** Django 5.2 CSRF requirements not met
-3. **Persistence Issue:** AJAX calls succeeding client-side but failing server-side
-
-**Solution Implemented:**
-
-**A. JavaScript Fix Applied:**
-```javascript
-// Fixed Select2 event handling permanently added to scripts.js
-$(document).ready(function() {
-    console.log("Loading Django 5.2 Select2 fix...");
-    $(".form-dynamic-select").off("change");
-    $(".form-dynamic-select").on("change", "select", function() {
-        console.log('Select2 changed - submitting form');
-        var $form = $(this).closest("form");
-        $.ajax({
-            type: "POST",
-            url: $form.attr("action"),
-            data: $form.serialize(),
-            dataType: "json",
-            headers: {
-                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
-            },
-            success: function(response) {
-                console.log("Team assignment successful:", response);
-                location.reload();
-            },
-            error: function(xhr, status, error) {
-                console.log("Team assignment error:", xhr.status, xhr.responseText);
-            }
-        });
-    });
-});
-```
-
-**B. CSRF Configuration for Django 5.2:**
-```python
-# Added to demo2/settings.py
-CSRF_COOKIE_NAME = 'csrftoken'
-CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'
-CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_USE_SESSIONS = False
-CSRF_TRUSTED_ORIGINS = [
-    'https://demo2.ischeduleyou.com',
-    'http://demo2.ischeduleyou.com',
-    'http://localhost:8000',
-]
-```
-
-**Implementation Process:**
-```bash
-# Created permanent JavaScript fix
-cat > /tmp/select2_fix.js << 'EOF'
-[JavaScript code above]
-EOF
-
-# Applied fix using docker compose cp (to handle permissions)
-docker compose cp /tmp/select2_fix.js web:/tmp/select2_fix.js
-docker compose exec web sh -c "cat /tmp/select2_fix.js >> static/assets/js/scripts.js"
-docker compose exec web python manage.py collectstatic --noinput
+# Applied correct uppercase format matching Demo
+docker compose exec web sed -i 's/|time:"g:i a"/|time:"g:i A"/g' templates/reservations/admin/all_reservations.html
 docker compose restart web
 ```
 
-**Testing Results:**
-- ✅ Teams can be assigned via Select2 interface
-- ✅ Teams persist after page refresh
-- ✅ CSRF 403 errors eliminated
-- ✅ Console shows successful AJAX responses
-- ✅ All field pages working consistently
+**Template Changes:**
+- **Before:** `{{ reservation.timeslot.start_time|time:"g:i a" }}` → "9:00 a.m."
+- **After:** `{{ reservation.timeslot.start_time|time:"g:i A" }}` → "8:00 AM" ✅
 
-**Result:** ✅ **100% FUNCTIONAL** - Team assignment system fully operational with database persistence
-
-#### ✅ **STEP 17 - Sidebar Toggle Modification Attempt & Restoration**
-**Request:** Remove sidebar toggle button and keep sidebar permanently expanded  
-**Investigation Scope:** Complete sidebar framework analysis  
-
-**Components Identified:**
-- JavaScript: `$(".btn-toggle-sidebar").click(function()` in scripts.js
-- Template: `templates/reservations/layouts/sidebar.html` with toggle button
-- API endpoint: `/reservations/api/toggleSidebar/`
-- CSS framework: Complex responsive sidebar system
-
-**Modification Attempts:**
-1. **Template Modification:** Removed toggle button HTML
-2. **JavaScript Disabling:** Commented out toggle event handlers  
-3. **CSS Override:** Added custom styles to force expansion
-4. **JavaScript Force:** Added script to maintain expanded state
-
-**Critical Issues Encountered:**
-```bash
-# JavaScript file corruption during modification
-SyntaxError: Unexpected identifier 'eof'. Expected a ')' or a ',' after a parameter declaration.
-
-# Permission errors on static file writes
--bash: static/assets/css/custom-sidebar.css: Permission denied
-
-# CSS framework conflicts
-.page-sidebar hover states causing unwanted movement
-Existing responsive classes overriding custom CSS
-```
-
-**Recovery Process:**
-```bash
-# Complete restoration to working state
-docker compose exec web cp staticfiles/assets/js/scripts.js static/assets/js/scripts.js
-docker compose exec web rm -f static/assets/css/custom-sidebar.css
-docker compose exec web rm -f static/assets/js/force-sidebar.js
-docker compose exec web python manage.py collectstatic --noinput
-docker compose restart web
-```
-
-**Lessons Learned:**
-- **Framework Integration Complexity:** Sidebar toggle deeply integrated with CSS framework
-- **JavaScript Syntax Preservation:** File modifications require careful syntax handling
-- **Docker Container Permissions:** Direct file writes may fail due to permission restrictions
-- **Backup Strategy Critical:** Always maintain working backups before UI modifications
-- **Core Functionality Priority:** Preserve working features over cosmetic improvements
-
-**Final Resolution:** ✅ **RESTORED TO ORIGINAL** - All functionality preserved, sidebar behavior returned to default with working toggle
+**Result:** ✅ **TIME FORMAT FIXED** - Approved reservations now display "8:00 AM" format matching Demo exactly
 
 ---
 
-## **JUNE 8, 2025 - SIDEBAR LOGOUT POSITIONING FIX**
+## Final Project Status
 
-### **Problem Discovered (Evening Session)**
-**Issue**: Two logout buttons appearing in sidebar, incorrect positioning
-**Screenshots**: Demo vs Demo2 comparison showed duplicate logout buttons
-**Analysis**: Missing `{% else %}` conditional structure in sidebar template
+### ✅ **DEMO2 COMPLETION SUMMARY**
+**Timeline:** June 7-8, 2025  
+**Total Steps Completed:** 21  
+**Status:** ✅ **100% COMPLETE** - All functionality working with consistent formatting  
 
-### **Root Cause Investigation**
-**Template Structure Problem:**
-- Lines 94-111: Logout form properly structured
-- Missing `{% else %}` block causing both logout AND login to show when authenticated
-- Demo (working) shows only logout when logged in, only login when not logged in
-- Demo2 (broken) was showing both simultaneously
+**Final Achievements:**
+- **Core Django Migration:** 1.10 → 5.2.2 fully operational
+- **Website Settings:** Admin-configurable site name working
+- **Time Formatting:** Consistent "8:00 AM" display across all pages
+- **Template Compatibility:** Django 5.2 template tags working
+- **Original Functionality:** All features restored and working
+- **Production Ready:** Docker containerization complete
 
-### **Fix Applied:**
-```bash
-# Added missing {% else %} and fixed conditional structure
-# Removed duplicate {% endif %} causing template syntax errors
-# Fixed orphaned HTML tags
+## Final Project Status
 
-# Final working structure:
-{% if is_authenticated %}
-    <li>
-        <a href="{% url 'logout' %}">
-            <span class="title">Logout</span>
-        </a>
-        <span class="icon-thumbnail"><i class="fa fa-sign-out"></i></span>
-    </li>
-{% else %}
-    <li>
-        <a href="{% url 'login' %}">
-            <span class="title">Login</span>
-        </a>
-        <span class="icon-thumbnail"><i class="fa fa-sign-in"></i></span>
-    </li>
-{% endif %}
-```
+### ✅ **DEMO2 COMPLETION SUMMARY**
+**Timeline:** June 7-8, 2025  
+**Total Steps Completed:** 21  
+**Status:** ✅ **100% COMPLETE** - All functionality working with consistent formatting  
 
-### **Result**
-✅ **SIDEBAR POSITIONING FIXED** - Shows only logout when authenticated, only login when not authenticated
-❌ **LOGOUT FUNCTIONALITY BROKEN** - HTTP 405 error when clicking logout
+**Final Achievements:**
+- **Core Django Migration:** 1.10 → 5.2.2 fully operational
+- **Website Settings:** Admin-configurable site name working
+- **Time Formatting:** Consistent "8:00 AM" display across all pages
+- **Template Compatibility:** Django 5.2 template tags working
+- **Original Functionality:** All features restored and working
+- **Production Ready:** Docker containerization complete
+
+**System Status:** ✅ **FULLY FUNCTIONAL** - Demo2 ready for production use and as foundation for future projects
+
+---
+
+## 🚀 **NEXT PHASE: INFRASTRUCTURE DOCUMENTATION + CLAUDE CODE WORKFLOW**
+
+### **PRIORITY 1: DOCUMENT AWS INFRASTRUCTURE SETUP**
+**Status:** ⚠️ **CRITICAL MISSING DOCUMENTATION**  
+**Problem:** No documentation exists for AWS setup, domains, or proxy configuration  
+
+**Required Documentation Tasks:**
+1. **AWS Server Configuration**
+   - EC2 instance details and setup
+   - Security groups and networking
+   - Server specifications and resources
+
+2. **Domain Setup Documentation**
+   - `demo.ischeduleyou.com` configuration
+   - `demo2.ischeduleyou.com` configuration  
+   - DNS settings and routing
+
+3. **Proxy/Reverse Proxy Setup**
+   - Nginx/Apache configuration
+   - Port mapping (3000, 3001, 8000)
+   - SSL/HTTPS setup
+   - Load balancing if applicable
+
+4. **Docker Deployment Process**
+   - Container orchestration on AWS
+   - Volume mounting and persistence
+   - Network configuration
+   - Auto-restart and monitoring
+
+### **PRIORITY 2: SAFETY BACKUP - COPY DEMO2 TO DEMO3**
+**Goal:** Create Demo3 as exact copy of working Demo2 before any changes  
+**Location:** `/opt/reservations/demo3/`  
+**Reason:** Preserve working Demo2 system while testing new workflows  
+
+**Copy Process:**
+- Full directory structure replication
+- Database backup and restore
+- Docker configuration duplication
+- Domain setup for demo3.ischeduleyou.com
+- Testing and verification
+
+### **PRIORITY 3: EMAIL SETTINGS IMPLEMENTATION (CLAUDE CODE TEST)**
+**Goal:** Copy working email configuration from Demo to Demo3 using Claude Code  
+**Reference Source:** `/opt/reservations/demo/demo/settings.py` (has working email server)  
+**Target:** `/opt/reservations/demo3/demo3/settings.py`  
+**Purpose:** Test case for Claude Code + Claude development workflow  
+
+### **STARTING POINT FOR NEW CHAT:**
+"First document AWS infrastructure setup (domains, proxy, deployment) then copy Demo2 to Demo3 for safety before implementing email settings with Claude Code. Demo2 is 100% functional at /opt/reservations/demo2 but missing AWS/infrastructure documentation."
+
+### **CRITICAL INFRASTRUCTURE GAPS:**
+- ❌ **AWS server setup process**
+- ❌ **Domain configuration steps** 
+- ❌ **Proxy/reverse proxy settings**
+- ❌ **SSL certificate setup**
+- ❌ **Port mapping documentation**
+- ❌ **Deployment automation**
+- ❌ **Backup/restore procedures**
+
+**Why This Matters:** Need infrastructure documentation for Demo3 setup and future production deployments
+
+## 🚀 **NEXT PHASE: INFRASTRUCTURE DOCUMENTATION + CLAUDE CODE WORKFLOW**
+
+### **PRIORITY 1: DOCUMENT AWS INFRASTRUCTURE SETUP**
+**Status:** ⚠️ **CRITICAL MISSING DOCUMENTATION**  
+**Problem:** No documentation exists for AWS setup, domains, or proxy configuration  
+
+**Required Documentation Tasks:**
+1. **AWS Server Configuration**
+   - EC2 instance details and setup
+   - Security groups and networking
+   - Server specifications and resources
+
+2. **Domain Setup Documentation**
+   - `demo.ischeduleyou.com` configuration
+   - `demo2.ischeduleyou.com` configuration  
+   - DNS settings and routing
+
+3. **Proxy/Reverse Proxy Setup**
+   - Nginx/Apache configuration
+   - Port mapping (3000, 3001, 8000)
+   - SSL/HTTPS setup
+   - Load balancing if applicable
+
+4. **Docker Deployment Process**
+   - Container orchestration on AWS
+   - Volume mounting and persistence
+   - Network configuration
+   - Auto-restart and monitoring
+
+### **PRIORITY 2: SAFETY BACKUP - COPY DEMO2 TO DEMO3**
+**Goal:** Create Demo3 as exact copy of working Demo2 before any changes  
+**Location:** `/opt/reservations/demo3/`  
+**Reason:** Preserve working Demo2 system while testing new workflows  
+
+**Copy Process:**
+- Full directory structure replication
+- Database backup and restore
+- Docker configuration duplication
+- Domain setup for demo3.ischeduleyou.com
+- Testing and verification
+
+### **PRIORITY 3: EMAIL SETTINGS IMPLEMENTATION (CLAUDE CODE TEST)**
+**Goal:** Copy working email configuration from Demo to Demo3 using Claude Code  
+**Reference Source:** `/opt/reservations/demo/demo/settings.py` (has working email server)  
+**Target:** `/opt/reservations/demo3/demo3/settings.py`  
+**Purpose:** Test case for Claude Code + Claude development workflow  
+
+### **STARTING POINT FOR NEW CHAT:**
+"First document AWS infrastructure setup (domains, proxy, deployment) then copy Demo2 to Demo3 for safety before implementing email settings with Claude Code. Demo2 is 100% functional at /opt/reservations/demo2 but missing AWS/infrastructure documentation."
+
+### **CRITICAL INFRASTRUCTURE GAPS:**
+- ❌ **AWS server setup process**
+- ❌ **Domain configuration steps** 
+- ❌ **Proxy/reverse proxy settings**
+- ❌ **SSL certificate setup**
+- ❌ **Port mapping documentation**
+- ❌ **Deployment automation**
+- ❌ **Backup/restore procedures**
+
+**Why This Matters:** Need infrastructure documentation for Demo3 setup and future production deployments
 
 ---
 
@@ -478,12 +217,40 @@ Core Models:
 - User: Extended with TeamProfile/ManagerProfile
 - GameType: Sport categories
 - Tournament: Competition management
+- WebsiteSetting: Key-value configuration store
 
 Relationships:
 Field ↔ ManyToMany ↔ User (teams allowed per field)
 Field → OneToMany → TimeSlot (time periods)
 Reservation → ForeignKey → Field, User, TimeSlot
 Tournament → ManyToMany → Field (tournament locations)
+WebsiteSetting → Unique key-value pairs
+```
+
+### **Website Settings System**
+```python
+WebsiteSetting Model Structure:
+class WebsiteSetting(models.Model):
+    key = models.CharField(max_length=255, unique=True)
+    description = models.CharField(max_length=500)
+    value = models.CharField(max_length=1000)
+
+Current Settings in Database:
+- SITE_NAME: "San Ramon Soccer Club" (changeable via admin)
+- SITE_DOMAIN: "https://demo2.ischeduleyou.com"
+- EMAIL_HOST: "smtp.gmail.com"
+- EMAIL_PORT: "587"
+- EMAIL_USE_TLS: "True"
+- EMAIL_HOST_USER: "reservation@davislegacysoccer.org"
+- EMAIL_HOST_PASSWORD: "" (to be set by admin)
+- SERVER_EMAIL: "reservation@davislegacysoccer.org"
+- EMAIL_SUBJECT_PREFIX: "[San Ramon Soccer Club] "
+- BLOCK_START_DAY: "0"
+- BLOCK_START_TIME: "00:00:00"
+- CALENDAR_RANGE_END: "7"
+- CALENDAR_RANGE_START: "1"
+- LAST_CLEAN_DATE: "06/07/2025"
+- RESERVATION_TOKEN_TIMEOUT: "10"
 ```
 
 ### **Time Handling System**
@@ -496,6 +263,7 @@ Display Formats:
 - Admin: "5:00 PM" (consistent uppercase)
 - Templates: "5:00 PM - 6:00 PM" (clean ranges)
 - Models: "05:00 PM - 06:00 PM @ Field Name"
+- Approved Reservations: "8:00 AM" (uppercase format)
 
 Configuration:
 TIME_INPUT_FORMATS = [
@@ -518,168 +286,20 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 ```
 
----
-
-## **LOGOUT ISSUE SOLUTION OPTIONS**
-
-### **Option 1: Custom Logout View (Recommended)**
-Create a simple custom logout view that accepts GET requests:
-
+### **Context Processors**
 ```python
-# In reservations/views/general/general.py - add:
-def custom_logout(request):
-    from django.contrib.auth import logout
-    from django.shortcuts import redirect
-    logout(request)
-    return redirect('/')
+# Settings: TEMPLATES[0]['OPTIONS']['context_processors']
+'reservations.context.auth.auth_context',
+'reservations.context.navigation.navigation_context', 
+'reservations.context.navigation.site_context',  # Added for site name
 
-# In reservations/urls.py - add before existing patterns:
-from .views.general.general import custom_logout
-re_path(r'^accounts/logout/$', custom_logout, name='logout'),
-```
-
-### **Option 2: JavaScript POST Form**
-Keep secure POST but use JavaScript to submit when clicking link:
-
-```html
-<li>
-    <a href="#" onclick="document.getElementById('logout-form').submit(); return false;">
-        <span class="title">Logout</span>
-    </a>
-    <form id="logout-form" method="post" action="{% url 'logout' %}" style="display: none;">
-        {% csrf_token %}
-    </form>
-    <span class="icon-thumbnail"><i class="fa fa-sign-out"></i></span>
-</li>
-```
-
-### **Option 3: Override Django Auth URLs**
-```python
-# In demo2/urls.py - BEFORE the django.contrib.auth.urls include:
-urlpatterns = [
-    path('accounts/logout/', custom_logout, name='logout'),  # Custom first
-    path('accounts/', include('django.contrib.auth.urls')),  # Django built-in second
-    # ... rest of patterns
-]
-```
-
----
-
-## Troubleshooting Guide
-
-### **Logout HTTP 405 Error**
-**Symptoms:**
-- Clicking logout shows "This page isn't working" 
-- Browser displays "HTTP ERROR 405"
-- URL shows `/accounts/logout/`
-
-**Diagnosis:**
-```bash
-# Test logout URL directly
-curl -I http://localhost:3001/accounts/logout/
-# Should show: HTTP/1.1 405 Method Not Allowed
-
-# Check Django settings
-docker compose exec web python manage.py shell -c "
-from django.conf import settings
-print('LOGOUT_ON_GET:', getattr(settings, 'LOGOUT_ON_GET', 'Not set'))
-"
-```
-
-**Common Causes:**
-1. Django 5.2 requires POST requests for logout by default
-2. Template uses GET requests via `<a href="">` links
-3. `LOGOUT_ON_GET = True` setting not effective with built-in auth views
-
-**Solutions:**
-- Implement Option 1 (Custom Logout View) - recommended
-- Use Option 2 (JavaScript POST) for maximum security
-- Verify URL patterns and view imports
-
-### **Time Field Issues**
-**Symptoms:**
-- "Please fill out both the start and end time!" error
-- "Enter a valid time." validation errors
-- Time picker widget not accepting input
-
-**Diagnosis:**
-```bash
-# Check TIME_INPUT_FORMATS configuration
-docker compose exec web python manage.py shell
->>> from django.conf import settings
->>> print("TIME_INPUT_FORMATS:", getattr(settings, 'TIME_INPUT_FORMATS', None))
-
-# Test time field validation
->>> from django import forms
->>> field = forms.TimeField()
->>> field.clean("4:45 PM")  # Test 12-hour
->>> field.clean("16:45")    # Test 24-hour
-```
-
-**Common Causes:**
-1. Form validation inconsistency (required=False but clean() requires fields)
-2. Missing TIME_INPUT_FORMATS in settings
-3. Django 5.2 expecting 24-hour but widget showing 12-hour
-
-**Solutions:**
-- Update form field required settings to match validation logic
-- Add comprehensive TIME_INPUT_FORMATS to settings.py
-- Add explicit input_formats to form field definitions
-
-### **Team Assignment Interface Issues**
-**Symptoms:**
-- "Click here to add some" not responsive
-- No dropdown appears on click
-- Teams can be added but disappear on refresh
-
-**Diagnosis:**
-```bash
-# Check API endpoints exist
-docker compose exec web grep -r "api_field_modify_teams" reservations/
-
-# Check JavaScript event handling
-docker compose exec web grep -A 10 "form-dynamic-select" static/assets/js/scripts.js
-
-# Browser debugging
-console.log("Forms found:", document.querySelectorAll('.form-dynamic-select').length);
-```
-
-**Common Causes:**
-1. Select2 plugin hiding original select elements
-2. JavaScript event handlers not targeting correct DOM elements
-3. CSRF token configuration issues for Django 5.2
-4. Permission errors preventing database updates
-
-**Solutions:**
-- Update JavaScript to handle Select2 DOM structure
-- Configure proper CSRF settings for Django 5.2
-- Use docker compose cp for file permission issues
-
-### **Static File Issues**
-**Symptoms:**
-- CSS not loading (404 errors)
-- JavaScript functionality broken
-- Admin interface unstyled
-
-**Diagnosis:**
-```bash
-# Check static file configuration
-docker compose exec web python manage.py shell
->>> from django.conf import settings
->>> print("STATIC_URL:", settings.STATIC_URL)
->>> print("STATICFILES_DIRS:", settings.STATICFILES_DIRS)
-
-# Verify static files collected
-docker compose exec web ls -la staticfiles/
-```
-
-**Solutions:**
-```bash
-# Collect static files
-docker compose exec web python manage.py collectstatic --noinput
-
-# Restart containers if needed
-docker compose restart web
+# Site Context Implementation:
+def site_context(request):
+    from reservations.utils import get_website_setting
+    return { 
+        'site_name': get_website_setting('SITE_NAME', ''),
+        'site_domain': get_website_setting('SITE_DOMAIN', '')
+    }
 ```
 
 ---
@@ -721,6 +341,9 @@ docker compose exec web sh -c "cat /tmp/newfile.js >> target/file.js"
 
 # Alternative: Direct container operations
 docker compose exec web vi filename.py
+
+# Backup files before modification
+docker compose exec web cp original.html original.html.backup
 ```
 
 ### **Database Operations**
@@ -733,6 +356,11 @@ docker compose exec -T db psql -U postgres demo2 < backup_file.sql
 
 # Reset database (caution!)
 docker compose exec web python manage.py flush
+
+# Add WebsiteSetting records
+docker compose exec web python manage.py shell
+>>> from reservations.models import WebsiteSetting
+>>> WebsiteSetting.objects.create(key='SITE_NAME', description='Site name', value='Your Site Name')
 ```
 
 ---
@@ -757,6 +385,13 @@ SECURE_HSTS_SECONDS = 31536000
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+# Email configuration from database (future enhancement)
+EMAIL_HOST = get_website_setting('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(get_website_setting('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = get_website_setting('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = get_website_setting('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = get_website_setting('EMAIL_HOST_PASSWORD', '')
 ```
 
 ### **Performance Optimizations**
@@ -764,149 +399,320 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 - PostgreSQL with proper indexing
 - Docker container resource limits available
 - Static file compression enabled
+- Database-driven configuration reduces environment variable dependencies
+
+**Current Location:** `/opt/reservations/demo2/`  
+**Docker Status:** Running (demo2-web, demo2-db)  
+**All Systems:** ✅ Operational but infrastructure undocumented# Demo2 Soccer Reservation System - Continuation Documentation
+
+## Project Status
+**Previous Status:** ✅ 100% COMPLETE (Steps 1-20)  
+**Current Phase:** Email Settings Web Interface Implementation  
+**Timeline:** June 8, 2025 - Continuing  
+**Last Completed:** Step 20 - Browser Title Cleanup  
 
 ---
 
-## Testing & Verification
+## ✅ **STEP 21 - EMAIL SETTINGS WEB INTERFACE IMPLEMENTATION** 
+**Started:** June 8, 2025 - Evening Session  
+**Goal:** Add web-based email configuration interface to Website Settings admin page  
 
-### **Functionality Checklist**
-- [x] Login/logout authentication flow *(logout has HTTP 405 error)*
-- [x] Dashboard loads with complete styling  
-- [x] Admin interface fully accessible
-- [x] Time slot creation (12-hour and 24-hour formats)
-- [x] Time displays show proper "5:00 PM" format
-- [x] Team assignment interface loads and functions
-- [x] Team assignments persist after page refresh
-- [x] Static files (CSS/JS) loading correctly
-- [x] No JavaScript console errors (except logout)
-- [x] All navigation links functional
-- [x] Sidebar toggle works as designed
-- [x] Django 5.2 compatibility complete
-- [x] Docker containerization operational
-- [x] Sidebar shows correct items based on authentication
-- [ ] **Logout functionality** - HTTP 405 error (CRITICAL)
+### **Current Analysis (Pre-Implementation)**
 
-### **Performance Verification**
+**What's Already in Place:**
+- ✅ Database records exist for all email settings (from Step 19)
+- ✅ WebsiteSetting model supports email configuration
+- ✅ Utility functions `get_website_setting()` and `set_website_setting()` working
+- ✅ Website Settings admin page structure exists
+- ✅ Site name form working as template
+
+**Email Settings Currently in Database:**
+```
+EMAIL_HOST: "smtp.gmail.com"
+EMAIL_PORT: "587" 
+EMAIL_USE_TLS: "True"
+EMAIL_HOST_USER: "reservation@davislegacysoccer.org"
+EMAIL_HOST_PASSWORD: "" (empty, needs admin input)
+SERVER_EMAIL: "reservation@davislegacysoccer.org"
+EMAIL_SUBJECT_PREFIX: "[San Ramon Soccer Club] "
+```
+
+**Current Gap:**
+- ❌ No web interface for email settings (only database records exist)
+- ❌ Django still using settings.py for email configuration
+- ❌ No way for admin to configure email through web interface
+
+### **Implementation Plan**
+
+**Step 21A:** Create EmailConfigForm class
+**Step 21B:** Update website_settings view to handle email form
+**Step 21C:** Add email configuration section to template
+**Step 21D:** Update Django settings to read from database
+**Step 21E:** Add URL route for email config editing
+**Step 21F:** Test and verify email configuration interface
+
+### **Files to Modify**
+- `reservations/forms/website_settings.py` - Add EmailConfigForm
+- `reservations/views/admin/website_settings.py` - Add email form handling
+- `templates/reservations/admin/website_settings.html` - Add email settings section
+- `demo2/settings.py` - Update to read email config from database
+- `reservations/urls.py` - Add email config edit route
+
+---
+
+## Implementation Progress
+
+### ✅ **STEP 21A - Create EmailConfigForm Class**
+**Started:** June 8, 2025 - Evening Session  
+**Location:** `/opt/reservations/demo2/reservations/forms/website_settings.py`  
+**Goal:** Add EmailConfigForm class following SiteConfigForm pattern  
+
+**Analysis of Existing Structure:**
+Based on the documentation, the current `website_settings.py` contains:
+```python
+class SiteConfigForm(forms.Form):
+    site_name = forms.CharField(max_length=255, required=True, error_messages={
+        'required': "Please provide a site name!",
+        'max_length': "The site name is too long!"
+    })
+
+    def __init__(self, *args, **kwargs):
+        super(SiteConfigForm, self).__init__(*args, **kwargs)
+        self.fields['site_name'].initial = get_website_setting('SITE_NAME', '')
+
+    @property
+    def get_site_name(self):
+        return self.fields['site_name'].initial
+
+    def save(self):
+        set_website_setting('SITE_NAME', self.cleaned_data.get('site_name'))
+```
+
+**EmailConfigForm Implementation Plan:**
+```python
+class EmailConfigForm(forms.Form):
+    email_host = forms.CharField(max_length=255, required=True, 
+                                label="SMTP Server",
+                                help_text="e.g., smtp.gmail.com")
+    email_port = forms.IntegerField(required=True, 
+                                   label="SMTP Port",
+                                   help_text="Usually 587 for TLS, 465 for SSL")
+    email_use_tls = forms.BooleanField(required=False, 
+                                      label="Use TLS Encryption",
+                                      help_text="Enable for secure email")
+    email_host_user = forms.EmailField(max_length=255, required=True,
+                                      label="Email Username",
+                                      help_text="Full email address")
+    email_host_password = forms.CharField(max_length=255, required=False,
+                                         widget=forms.PasswordInput,
+                                         label="Email Password",
+                                         help_text="Leave blank to keep current")
+    server_email = forms.EmailField(max_length=255, required=True,
+                                   label="Server Email Address",
+                                   help_text="From address for system emails")
+    email_subject_prefix = forms.CharField(max_length=50, required=False,
+                                          label="Email Subject Prefix",
+                                          help_text="e.g., [Site Name]")
+    
+    def __init__(self, *args, **kwargs):
+        super(EmailConfigForm, self).__init__(*args, **kwargs)
+        # Initialize fields with current database values
+        self.fields['email_host'].initial = get_website_setting('EMAIL_HOST', 'smtp.gmail.com')
+        self.fields['email_port'].initial = int(get_website_setting('EMAIL_PORT', '587'))
+        self.fields['email_use_tls'].initial = get_website_setting('EMAIL_USE_TLS', 'True') == 'True'
+        self.fields['email_host_user'].initial = get_website_setting('EMAIL_HOST_USER', '')
+        # Don't show current password for security
+        self.fields['server_email'].initial = get_website_setting('SERVER_EMAIL', '')
+        self.fields['email_subject_prefix'].initial = get_website_setting('EMAIL_SUBJECT_PREFIX', '')
+
+    def save(self):
+        set_website_setting('EMAIL_HOST', self.cleaned_data.get('email_host'))
+        set_website_setting('EMAIL_PORT', str(self.cleaned_data.get('email_port')))
+        set_website_setting('EMAIL_USE_TLS', 'True' if self.cleaned_data.get('email_use_tls') else 'False')
+        set_website_setting('EMAIL_HOST_USER', self.cleaned_data.get('email_host_user'))
+        # Only update password if provided
+        if self.cleaned_data.get('email_host_password'):
+            set_website_setting('EMAIL_HOST_PASSWORD', self.cleaned_data.get('email_host_password'))
+        set_website_setting('SERVER_EMAIL', self.cleaned_data.get('server_email'))
+        set_website_setting('EMAIL_SUBJECT_PREFIX', self.cleaned_data.get('email_subject_prefix'))
+```
+
+**Implementation Command:**
 ```bash
-# Container resource usage
-docker stats demo2-web demo2-db
+# Add EmailConfigForm to website_settings.py
+docker compose exec web cp reservations/forms/website_settings.py reservations/forms/website_settings.py.backup
 
-# Response time testing
-curl -w "%{time_total}" https://demo2.ischeduleyou.com/
+# Add the EmailConfigForm class
+docker compose exec web sh -c 'cat >> reservations/forms/website_settings.py << "EOF"
 
-# Database query analysis
-docker compose exec web python manage.py shell
->>> from django.db import connection
->>> connection.queries  # Review after operations
+class EmailConfigForm(forms.Form):
+    email_host = forms.CharField(max_length=255, required=True, 
+                                label="SMTP Server",
+                                help_text="e.g., smtp.gmail.com",
+                                error_messages={'required': "Please provide an SMTP server!"})
+    email_port = forms.IntegerField(required=True, 
+                                   label="SMTP Port",
+                                   help_text="Usually 587 for TLS, 465 for SSL",
+                                   error_messages={'required': "Please provide an SMTP port!"})
+    email_use_tls = forms.BooleanField(required=False, 
+                                      label="Use TLS Encryption",
+                                      help_text="Enable for secure email")
+    email_host_user = forms.EmailField(max_length=255, required=True,
+                                      label="Email Username",
+                                      help_text="Full email address",
+                                      error_messages={'required': "Please provide an email username!"})
+    email_host_password = forms.CharField(max_length=255, required=False,
+                                         widget=forms.PasswordInput,
+                                         label="Email Password",
+                                         help_text="Leave blank to keep current password")
+    server_email = forms.EmailField(max_length=255, required=True,
+                                   label="Server Email Address",
+                                   help_text="From address for system emails",
+                                   error_messages={'required': "Please provide a server email address!"})
+    email_subject_prefix = forms.CharField(max_length=50, required=False,
+                                          label="Email Subject Prefix",
+                                          help_text="e.g., [Site Name]")
+    
+    def __init__(self, *args, **kwargs):
+        super(EmailConfigForm, self).__init__(*args, **kwargs)
+        from reservations.utils import get_website_setting
+        # Initialize fields with current database values
+        self.fields["email_host"].initial = get_website_setting("EMAIL_HOST", "smtp.gmail.com")
+        self.fields["email_port"].initial = int(get_website_setting("EMAIL_PORT", "587"))
+        self.fields["email_use_tls"].initial = get_website_setting("EMAIL_USE_TLS", "True") == "True"
+        self.fields["email_host_user"].initial = get_website_setting("EMAIL_HOST_USER", "")
+        # Don't show current password for security
+        self.fields["server_email"].initial = get_website_setting("SERVER_EMAIL", "")
+        self.fields["email_subject_prefix"].initial = get_website_setting("EMAIL_SUBJECT_PREFIX", "")
+
+    @property  
+    def get_email_host(self):
+        return self.fields["email_host"].initial
+
+    @property
+    def get_email_port(self):
+        return self.fields["email_port"].initial
+
+    @property
+    def get_email_use_tls(self):
+        return self.fields["email_use_tls"].initial
+
+    @property
+    def get_email_host_user(self):
+        return self.fields["email_host_user"].initial
+
+    @property
+    def get_server_email(self):
+        return self.fields["server_email"].initial
+
+    @property
+    def get_email_subject_prefix(self):
+        return self.fields["email_subject_prefix"].initial
+
+    def save(self):
+        from reservations.utils import set_website_setting
+        set_website_setting("EMAIL_HOST", self.cleaned_data.get("email_host"))
+        set_website_setting("EMAIL_PORT", str(self.cleaned_data.get("email_port")))
+        set_website_setting("EMAIL_USE_TLS", "True" if self.cleaned_data.get("email_use_tls") else "False")
+        set_website_setting("EMAIL_HOST_USER", self.cleaned_data.get("email_host_user"))
+        # Only update password if provided
+        if self.cleaned_data.get("email_host_password"):
+            set_website_setting("EMAIL_HOST_PASSWORD", self.cleaned_data.get("email_host_password"))
+        set_website_setting("SERVER_EMAIL", self.cleaned_data.get("server_email"))
+        set_website_setting("EMAIL_SUBJECT_PREFIX", self.cleaned_data.get("email_subject_prefix"))
+EOF'
 ```
 
----
-
-## Development Workflow
-
-### **Making Changes**
-1. **Always backup current working state**
-2. **Test changes in development environment**
-3. **Document all modifications**
-4. **Verify functionality after each change**
-5. **Update this documentation**
-
-### **Change Documentation Template**
-```markdown
-#### ✅ **STEP X - [Change Description]**
-**Problem:** [Description of issue]
-**Location:** [File paths and line numbers]
-**Root Cause:** [Technical explanation]
-**Solution:** [Detailed fix applied]
-**Commands:**
+**Implementation Commands Executed:**
 ```bash
-[Exact commands used]
-```
-**Result:** ✅ [Outcome and verification]
+# Backup original file
+docker compose exec web cp reservations/forms/website_settings.py reservations/forms/website_settings.py.backup
+
+# Add EmailConfigForm to the file
+docker compose exec web sh -c 'cat >> reservations/forms/website_settings.py << "EOF"
+
+class EmailConfigForm(forms.Form):
+    email_host = forms.CharField(max_length=255, required=True, 
+                                label="SMTP Server",
+                                help_text="e.g., smtp.gmail.com",
+                                error_messages={"required": "Please provide an SMTP server!"})
+    email_port = forms.IntegerField(required=True, 
+                                   label="SMTP Port",
+                                   help_text="Usually 587 for TLS, 465 for SSL",
+                                   error_messages={"required": "Please provide an SMTP port!"})
+    email_use_tls = forms.BooleanField(required=False, 
+                                      label="Use TLS Encryption",
+                                      help_text="Enable for secure email")
+    email_host_user = forms.EmailField(max_length=255, required=True,
+                                      label="Email Username",
+                                      help_text="Full email address",
+                                      error_messages={"required": "Please provide an email username!"})
+    email_host_password = forms.CharField(max_length=255, required=False,
+                                         widget=forms.PasswordInput,
+                                         label="Email Password",
+                                         help_text="Leave blank to keep current password")
+    server_email = forms.EmailField(max_length=255, required=True,
+                                   label="Server Email Address",
+                                   help_text="From address for system emails",
+                                   error_messages={"required": "Please provide a server email address!"})
+    email_subject_prefix = forms.CharField(max_length=50, required=False,
+                                          label="Email Subject Prefix",
+                                          help_text="e.g., [Site Name]")
+    
+    def __init__(self, *args, **kwargs):
+        super(EmailConfigForm, self).__init__(*args, **kwargs)
+        from reservations.utils import get_website_setting
+        # Initialize fields with current database values
+        self.fields["email_host"].initial = get_website_setting("EMAIL_HOST", "smtp.gmail.com")
+        self.fields["email_port"].initial = int(get_website_setting("EMAIL_PORT", "587"))
+        self.fields["email_use_tls"].initial = get_website_setting("EMAIL_USE_TLS", "True") == "True"
+        self.fields["email_host_user"].initial = get_website_setting("EMAIL_HOST_USER", "")
+        # Don't show current password for security
+        self.fields["server_email"].initial = get_website_setting("SERVER_EMAIL", "")
+        self.fields["email_subject_prefix"].initial = get_website_setting("EMAIL_SUBJECT_PREFIX", "")
+
+    @property  
+    def get_email_host(self):
+        return self.fields["email_host"].initial
+
+    @property
+    def get_email_port(self):
+        return self.fields["email_port"].initial
+
+    @property
+    def get_email_use_tls(self):
+        return self.fields["email_use_tls"].initial
+
+    @property
+    def get_email_host_user(self):
+        return self.fields["email_host_user"].initial
+
+    @property
+    def get_server_email(self):
+        return self.fields["server_email"].initial
+
+    @property
+    def get_email_subject_prefix(self):
+        return self.fields["email_subject_prefix"].initial
+
+    def save(self):
+        from reservations.utils import set_website_setting
+        set_website_setting("EMAIL_HOST", self.cleaned_data.get("email_host"))
+        set_website_setting("EMAIL_PORT", str(self.cleaned_data.get("email_port")))
+        set_website_setting("EMAIL_USE_TLS", "True" if self.cleaned_data.get("email_use_tls") else "False")
+        set_website_setting("EMAIL_HOST_USER", self.cleaned_data.get("email_host_user"))
+        # Only update password if provided
+        if self.cleaned_data.get("email_host_password"):
+            set_website_setting("EMAIL_HOST_PASSWORD", self.cleaned_data.get("email_host_password"))
+        set_website_setting("SERVER_EMAIL", self.cleaned_data.get("server_email"))
+        set_website_setting("EMAIL_SUBJECT_PREFIX", self.cleaned_data.get("email_subject_prefix"))
+EOF'
 ```
 
-### **Rollback Procedures**
+**Verification:**
 ```bash
-# Restore from backup
-docker compose down
-cp -r backup_directory/* ./
-docker compose up --build -d
-
-# Restore specific files
-docker compose exec web cp file.backup file.py
-docker compose restart web
+# Check that EmailConfigForm was added successfully
+docker compose exec web tail -20 reservations/forms/website_settings.py
 ```
 
----
-
-## Project Status Summary
-
-### **✅ COMPLETED ACHIEVEMENTS**
-- **Complete Django modernization** (1.10 → 5.2.2)
-- **99% functionality restoration** (only logout broken)
-- **Production-ready container setup**
-- **Comprehensive documentation**
-- **Tested upgrade methodology**
-- **Security compatibility** (CSRF, authentication)
-- **User interface consistency** (time formatting, navigation)
-- **Database persistence** (team assignments, reservations)
-- **Sidebar positioning** (fixed duplicate logout issue)
-
-### **❌ REMAINING CRITICAL ISSUE**
-- **HTTP 405 Logout Error** - Django 5.2 POST requirement vs GET links
-
-### **✅ PRODUCTION READINESS**
-- Modern Django 5.2.2 with Python 3.11
-- Docker containerization complete
-- All security issues resolved (except logout method)
-- Performance optimizations applied
-- Complete documentation for maintenance
-
-### **✅ TEMPLATE READINESS**
-Demo2 serves as an excellent foundation for:
-- Demo3 development (after logout fix)
-- Other project modernizations
-- Django upgrade reference
-- Best practices documentation
-
----
-
-## Next Steps & Future Development
-
-### **Immediate Priority**
-1. **🔴 RESOLVE LOGOUT HTTP 405 ERROR** - Critical functionality broken
-2. **🟡 Test logout fix thoroughly** - Verify security and functionality
-3. **🟡 Production deployment** - After logout verified working
-4. **🟢 Demo3 template** - Use as base for next project
-
-### **Long-term Maintenance**
-- Regular Django security updates
-- Container image updates
-- Database backup procedures
-- Performance monitoring
-- Documentation updates
-
-### **Expansion Possibilities**
-- Multi-tenant support
-- Mobile application backend
-- Advanced reporting features
-- Integration with external systems
-- Automated testing suite
-
----
-
-## Contact & Support Information
-
-**Documentation Maintained By:** Development Team  
-**Last Updated:** June 8, 2025 - 7:15 PM  
-**System Version:** Django 5.2.2 + Docker  
-**Status:** 99% Complete - Logout Issue Pending  
-
-**Critical Note for Future Developers:**  
-The logout HTTP 405 error is the ONLY remaining issue preventing 100% completion. All other functionality including time validation, team assignments, admin interface, and sidebar positioning has been fully resolved and tested. Implementing Option 1 (Custom Logout View) should complete the modernization project.
-
-**For Updates:** Continue updating this document as changes are made to maintain complete project history and troubleshooting knowledge.
-
----
-
-*This documentation serves as the definitive reference for the Demo2 modernization project and includes all details from the original chat plus current logout issue status.*
+**Result:** ✅ **EmailConfigForm class created** - Form follows S
